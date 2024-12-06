@@ -2,16 +2,14 @@ package cli
 
 import (
 	"bufio"
+	"encoding/hex"
 	"fmt"
-	"github.com/pythonistD/inf-sec-lab1.1-encryption/pkg/encrypt"
+	"github.com/pythonistD/inf-sec-lab1.2-encryption/pkg/encryption/algorithms"
+	"github.com/pythonistD/inf-sec-lab1.2-encryption/pkg/encryption/utils"
 	"io"
 	"os"
 	"strconv"
 	"strings"
-)
-import (
-	"github.com/pythonistD/inf-sec-lab1.1-encryption/internal/fileio"
-	"github.com/pythonistD/inf-sec-lab1.1-encryption/pkg/dto"
 )
 
 func cryptOrDecrypt() string {
@@ -126,11 +124,11 @@ func getKeyword() string {
 	return mod
 }
 
-func getChars(desc io.Reader) []rune {
+func getChars(desc io.Reader) []byte {
 	scanner := bufio.NewScanner(desc)
-	var lines []rune
+	var lines []byte
 	for scanner.Scan() {
-		line := []rune(scanner.Text())
+		line := []byte(scanner.Text())
 		line = append(line, '\n')
 		lines = append(lines, line...)
 	}
@@ -166,40 +164,37 @@ func getFileDescriptor() io.Reader {
 	return desc
 }
 
+func hexStringToBytes(hexStr string) ([]byte, error) {
+	// Декодирование строки в массив байт
+	bytes, err := hex.DecodeString(hexStr)
+	if err != nil {
+		return nil, err
+	}
+	return bytes, nil
+}
+
 func Execute() {
-	var dataToWrite []rune
+	//var dataToWrite []rune
 
 	mod := cryptOrDecrypt()
 	fmt.Printf("Выбран режим: %s\n", mod)
-	lang := selectLang()
+	//lang := selectLang()
 	keyword := getKeyword()
 	chars := getChars(getFileDescriptor())
-	shift, _ := strconv.Atoi(getShift())
-	inputDataDto := dto.InputDataDto{Symbols: chars, Shift: shift, Keyword: keyword, Lang: lang}
+
+	paddedKey, _ := utils.PaddingKey([]byte(keyword), 16)
+	r, _ := algorithms.NewRijndael(paddedKey)
 	if mod == "1" {
-		encryptTable, err := encrypt.CreateEncryptTable(inputDataDto)
-		if err != nil {
-			fmt.Printf("Ошибка во время выполнения программы: %v\n", err)
-		}
-		encryptedData, err := encrypt.CaesarCipherEncrypt(chars, encryptTable)
-		dataToWrite = []rune(encryptedData)
-		if err != nil {
-			fmt.Printf("Ошибка во время выполнения программы: %v\n", err)
-		}
+		encrypted := r.EncryptECB(chars)
+		fmt.Printf("Encrypted Data: %x", encrypted)
 	} else if mod == "2" {
-		encryptTable, err := encrypt.CreateEncryptTable(inputDataDto)
-		decryptTable, err := encrypt.CreateDecryptTable(encryptTable)
-		if err != nil {
-			fmt.Printf("Ошибка во время выполнения программы: %v\n", err)
-		}
-		decryptedData, err := encrypt.CaesarCipherDecrypt(chars, decryptTable)
-		dataToWrite = []rune(decryptedData)
-		if err != nil {
-			fmt.Printf("Ошибка во время выполнения программы: %v\n", err)
-		}
+		s := string(chars)
+		hexS, _ := hexStringToBytes(strings.TrimSpace(s))
+		decrypted := r.DecryptECB(hexS)
+		fmt.Printf("Decrypted Data: %s", string(decrypted))
 	}
-	err := fileio.WriteText(dataToWrite, "./files/outData.txt")
+	/*err := fileio.WriteText(dataToWrite, "./files/outData.txt")
 	if err != nil {
 		fmt.Printf("Ошибка во время выполнения программы: %v\n", err)
-	}
+	}*/
 }
