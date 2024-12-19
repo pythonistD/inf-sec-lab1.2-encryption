@@ -172,9 +172,48 @@ func hexStringToBytes(hexStr string) ([]byte, error) {
 	}
 	return bytes, nil
 }
+func writeBytesToFile(data []byte, filePath string) error {
+	// Открываем файл для записи (если файл не существует - создаем)
+	file, err := os.Create(filePath)
+	if err != nil {
+		return fmt.Errorf("не удалось создать файл: %w", err)
+	}
+	defer file.Close()
+
+	// Записываем байты в файл
+	_, err = file.Write(data)
+	if err != nil {
+		return fmt.Errorf("ошибка записи в файл: %w", err)
+	}
+	return nil
+}
+func writeStringToFile(filePath string, content string) error {
+	// Открываем файл в режиме записи (создаём, если не существует)
+	file, err := os.OpenFile(filePath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
+	if err != nil {
+		return fmt.Errorf("ошибка открытия файла: %w", err)
+	}
+	defer file.Close()
+
+	// Создаём буферизированный писатель
+	writer := bufio.NewWriter(file)
+
+	// Пишем строку в файл через буфер
+	_, err = writer.WriteString(content)
+	if err != nil {
+		return fmt.Errorf("ошибка записи в файл: %w", err)
+	}
+
+	// Сбрасываем данные из буфера в файл
+	err = writer.Flush()
+	if err != nil {
+		return fmt.Errorf("ошибка сброса буфера: %w", err)
+	}
+	return nil
+}
 
 func Execute() {
-	//var dataToWrite []rune
+	var dataToWrite string
 
 	mod := cryptOrDecrypt()
 	fmt.Printf("Выбран режим: %s\n", mod)
@@ -185,16 +224,27 @@ func Execute() {
 	paddedKey, _ := utils.PaddingKey([]byte(keyword), 16)
 	r, _ := algorithms.NewRijndael(paddedKey)
 	if mod == "1" {
-		encrypted := r.EncryptECB(chars)
-		fmt.Printf("Encrypted Data: %x", encrypted)
+		dataToWrite = hex.EncodeToString(r.EncryptECB(chars))
+		fmt.Printf("Encrypted Data: %x", dataToWrite)
+		err := writeStringToFile("C:\\Users\\user\\ProgrammingProjects\\GoProjects\\inf-sec-lab1.2-encryption\\files\\outData.txt", dataToWrite)
+		if err != nil {
+			fmt.Println("Ошибка записи в файл")
+		}
+		return
 	} else if mod == "2" {
 		s := string(chars)
 		hexS, _ := hexStringToBytes(strings.TrimSpace(s))
-		decrypted := r.DecryptECB(hexS)
-		fmt.Printf("Decrypted Data: %s", string(decrypted))
+		dataToWrite = string(r.DecryptECB(hexS))
+		fmt.Printf("Decrypted Data: %s", string(dataToWrite))
+		err := writeStringToFile("C:\\Users\\user\\ProgrammingProjects\\GoProjects\\inf-sec-lab1.2-encryption\\files\\outData.txt", dataToWrite)
+		if err != nil {
+			fmt.Println("Ошибка записи в файл")
+		}
+		return
 	}
-	/*err := fileio.WriteText(dataToWrite, "./files/outData.txt")
+	err := writeStringToFile(dataToWrite, "./files/outData.txt")
+	//err := fileio.WriteText(dataToWrite, "./files/outData.txt")
 	if err != nil {
 		fmt.Printf("Ошибка во время выполнения программы: %v\n", err)
-	}*/
+	}
 }
